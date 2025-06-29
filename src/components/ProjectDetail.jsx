@@ -1,0 +1,396 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams, Link } from "react-router-dom"
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore"
+import { db } from "../lib/firebase"
+import { useAuth } from "../contexts/AuthContext"
+import { JobRowSkeleton } from "./SkeletonLoader"
+import { sanitizeForFirestore, validateRequiredFields, parseNumericField } from "../utils/firestoreUtils"
+export default function ProjectDetail() {
+  const { projectId } = useParams()
+  const { user } = useAuth()
+  const [project, setProject] = useState(null)
+  const [jobs, setJobs] = useState([])
+  const [showModal, setShowModal] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [newJob, setNewJob] = useState({
+    name: "",
+    description: "",
+    unitWeight: "",
+    quantity: "",
+  })
+  const [loading, setLoading] = useState(true)
+  const [editingJob, setEditingJob] = useState(null)
+  const [editJob, setEditJob] = useState({
+    name: "",
+    description: "",
+    unitWeight: "",
+    quantity: "",
+  })
+
+  useEffect(() => {
+    fetchProjectAndJobs()
+  }, [projectId])
+
+  const fetchProjectAndJobs = async () => {
+    try {
+      // Fetch project details
+      const projectDoc = await getDoc(doc(db, "projects", projectId))
+      if (projectDoc.exists()) {
+        setProject({ id: projectDoc.id, ...projectDoc.data() })
+      }
+
+      // Fetch all jobs for this project (remove user filter)
+      const q = query(collection(db, "jobs"), where("projectId", "==", projectId))
+      const querySnapshot = await getDocs(q)
+      const jobsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      setJobs(jobsData)
+    } catch (error) {
+      console.error("Error fetching data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateJob = async (e) => {
+    e.preventDefault()
+
+    const { isValid, errors } = validateRequiredFields(newJob, ["name"])
+    if (!isValid) {
+      console.error("Validation errors:", errors)
+      return
+    }
+
+    try {
+      const unitWeight = parseNumericField(newJob.unitWeight)
+      const quantity = parseNumericField(newJob.quantity)
+
+      const jobData = sanitizeForFirestore(
+        {
+          ...newJob,
+          projectId,
+          userId: user.uid,
+          unitWeight,
+          quantity,
+          totalWeight: unitWeight * quantity,
+          status: "pending",
+          createdAt: new Date(),
+          steps: [
+            { name: "Marking", completed: false, completedAt: null },
+            { name: "Cutting", completed: false, completedAt: null },
+            { name: "Fit-up", completed: false, completedAt: null },
+            { name: "Welding", completed: false, completedAt: null },
+            { name: "Quality Check", completed: false, completedAt: null },
+            { name: "Blasting", completed: false, completedAt: null },
+            { name: "Painting", completed: false, completedAt: null },
+            { name: "Ready to Dispatch", completed: false, completedAt: null },
+          ],
+        },
+        ["description"],
+      )
+
+      await addDoc(collection(db, "jobs"), jobData)
+      setNewJob({ name: "", description: "", unitWeight: "", quantity: "" })
+      setShowModal(false)
+      fetchProjectAndJobs()
+    } catch (error) {
+      console.error("Error creating job:", error)
+    }
+  }
+
+  const handleDeleteJob = async (jobId) => {
+    if (window.confirm("Are you sure you want to delete this job?")) {
+      try {
+        await deleteDoc(doc(db, "jobs", jobId))
+        fetchProjectAndJobs()
+      } catch (error) {
+        console.error("Error deleting job:", error)
+      }
+    }
+  }
+
+  const handleEditJob = (job) => {
+    setEditJob({
+      name: job.name,
+      description: job.description,
+      unitWeight: job.unitWeight.toString(),
+      quantity: job.quantity.toString(),
+    })
+    setEditingJob(job.id)
+  }
+
+  const handleUpdateJob = async (e) => {
+    e.preventDefault()
+
+    const { isValid, errors } = validateRequiredFields(editJob, ["name"])
+    if (!isValid) {
+      console.error("Validation errors:", errors)
+      return
+    }
+
+    try {
+      const unitWeight = parseNumericField(editJob.unitWeight)
+      const quantity = parseNumericField(editJob.quantity)
+
+      const jobData = sanitizeForFirestore(
+        {
+          ...editJob,
+          unitWeight,
+          quantity,
+          totalWeight: unitWeight * quantity,
+          updatedAt: new Date(),
+        },
+        ["description"],
+      )
+
+      await updateDoc(doc(db, "jobs", editingJob), jobData)
+      setEditJob({ name: "", description: "", unitWeight: "", quantity: "" })
+      setEditingJob(null)
+      fetchProjectAndJobs()
+    } catch (error) {
+      console.error("Error updating job:", error)
+    }
+  }
+
+  const cancelJobEdit = () => {
+    setEditingJob(null)
+    setEditJob({ name: "", description: "", unitWeight: "", quantity: "" })
+  }
+
+  const filteredJobs = jobs.filter((job) => job.name.toLowerCase().includes(searchTerm.toLowerCase()))
+
+  if (loading) {
+    return (
+      <div className="project-detail">
+        <div className="project-detail-header">
+          <div>
+            <div className="skeleton-title" style={{ width: "300px", height: "2rem", marginBottom: "0.5rem" }}></div>
+            <div className="skeleton-text" style={{ width: "200px", height: "1rem" }}></div>
+          </div>
+          <div className="skeleton-button" style={{ width: "120px", height: "2.5rem" }}></div>
+        </div>
+
+        <div className="jobs-section">
+          <div className="jobs-header">
+            <h2>⚡ Jobs</h2>
+            <div className="jobs-actions">
+              <div className="skeleton-button" style={{ width: "200px", height: "2.5rem" }}></div>
+              <div className="skeleton-button" style={{ width: "100px", height: "2.5rem" }}></div>
+            </div>
+          </div>
+
+          <div className="jobs-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job Name</th>
+                  <th>Unit Weight (kg)</th>
+                  <th>Quantity</th>
+                  <th>Total Weight (kg)</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <JobRowSkeleton key={index} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!project) {
+    return <div className="error-message">Project not found</div>
+  }
+
+  return (
+    <div className="project-detail">
+      <div className="projects-header">
+        <div>
+          <h1>📁 {project.name}</h1>
+          <p>{project.description}</p>
+        </div>
+        <Link to="/projects" className="btn btn-secondary">
+          ← Back to Projects
+        </Link>
+      </div>
+
+      <div className="jobs-section">
+        <div className="jobs-header">
+          <h2>⚡ Jobs</h2>
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="🔍 Search jobs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <button onClick={() => setShowModal(true)} className="btn btn-primary">
+              ➕ Add Job
+            </button>
+          </div>
+        </div>
+
+        <div className="jobs-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Job Name</th>
+                <th>Unit Weight (kg)</th>
+                <th>Quantity</th>
+                <th>Total Weight (kg)</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>{job.name}</td>
+                  <td>{job.unitWeight}</td>
+                  <td>{job.quantity}</td>
+                  <td>{job.totalWeight}</td>
+                  <td>
+                    <span className={`status-badge status-${job.status}`}>{job.status}</span>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <Link to={`/projects/${projectId}/jobs/${job.id}`} className="btn btn-sm btn-primary">
+                        View
+                      </Link>
+                      <button onClick={() => handleEditJob(job)} className="btn btn-sm btn-secondary">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDeleteJob(job.id)} className="btn btn-sm btn-danger">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredJobs.length === 0 && (
+          <div className="empty-state">
+            <h3>No jobs found</h3>
+            <p>Add your first job to get started!</p>
+          </div>
+        )}
+      </div>
+
+      {(showModal || editingJob) && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>{editingJob ? "Edit Job" : "Add New Job"}</h2>
+              <button
+                onClick={() => {
+                  setShowModal(false)
+                  cancelJobEdit()
+                }}
+                className="modal-close"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={editingJob ? handleUpdateJob : handleCreateJob} className="modal-form">
+              <div className="form-group">
+                <label>Job Name</label>
+                <input
+                  type="text"
+                  value={editingJob ? editJob.name : newJob.name}
+                  onChange={(e) =>
+                    editingJob
+                      ? setEditJob({ ...editJob, name: e.target.value })
+                      : setNewJob({ ...newJob, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={editingJob ? editJob.description : newJob.description}
+                  onChange={(e) =>
+                    editingJob
+                      ? setEditJob({ ...editJob, description: e.target.value })
+                      : setNewJob({ ...newJob, description: e.target.value })
+                  }
+                  rows="3"
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Unit Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingJob ? editJob.unitWeight : newJob.unitWeight}
+                    onChange={(e) =>
+                      editingJob
+                        ? setEditJob({ ...editJob, unitWeight: e.target.value })
+                        : setNewJob({ ...newJob, unitWeight: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    value={editingJob ? editJob.quantity : newJob.quantity}
+                    onChange={(e) =>
+                      editingJob
+                        ? setEditJob({ ...editJob, quantity: e.target.value })
+                        : setNewJob({ ...newJob, quantity: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>
+                  Total Weight:{" "}
+                  {editingJob
+                    ? ((Number.parseFloat(editJob.unitWeight) || 0) * (Number.parseInt(editJob.quantity) || 0)).toFixed(
+                        2,
+                      )
+                    : ((Number.parseFloat(newJob.unitWeight) || 0) * (Number.parseInt(newJob.quantity) || 0)).toFixed(
+                        2,
+                      )}{" "}
+                  kg
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false)
+                    cancelJobEdit()
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editingJob ? "Update Job" : "Add Job"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
