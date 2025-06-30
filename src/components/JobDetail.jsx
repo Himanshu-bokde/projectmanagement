@@ -150,10 +150,10 @@ export default function JobDetail() {
       <div className="job-detail-header">
         <div>
           <div className="job-title-section">
-            <h1>⚡ {job.name}</h1>
+            {/* <h1>⚡ {job.name}</h1>
             <button onClick={handleEditJob} className="btn btn-sm btn-secondary">
               ✏️ Edit Job
-            </button>
+            </button> */}
           </div>
           <p>Project: {project.name}</p>
           <p>{job.description}</p>
