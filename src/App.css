@@ -780,11 +780,13 @@ body {
   opacity: 0;
   transition: all 0.3s ease;
   z-index: 99;
+  pointer-events: none;
 }
 
 .mobile-nav.active {
   transform: translateY(0);
   opacity: 1;
+  pointer-events: auto;
 }
 
 .mobile-nav-content {
@@ -1703,6 +1705,27 @@ body {
 }
 
 /* Responsive Design */
+@media (max-width: 768px) {
+  .nav-links,
+  .nav-actions {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: block;
+  }
+
+  .mobile-nav {
+    display: block;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-nav {
+    display: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .nav-links,
   .nav-actions {

@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { useTheme } from "../contexts/ThemeContext"
@@ -8,6 +9,7 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const location = useLocation()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const handleLogout = async () => {
     try {
@@ -62,11 +64,10 @@ export default function Navbar() {
         {/* Mobile menu button */}
         <div className="mobile-menu">
           <button
-            className="mobile-menu-btn"
-            onClick={() => {
-              const mobileNav = document.querySelector(".mobile-nav")
-              mobileNav.classList.toggle("active")
-            }}
+            className={`mobile-menu-btn${mobileNavOpen ? " active" : ""}`}
+            onClick={() => setMobileNavOpen((open) => !open)}
+            aria-label="Open mobile menu"
+            aria-expanded={mobileNavOpen}
           >
             <span className="hamburger"></span>
             <span className="hamburger"></span>
@@ -76,13 +77,13 @@ export default function Navbar() {
       </div>
 
       {/* Mobile navigation */}
-      <div className="mobile-nav">
+      <div className={`mobile-nav${mobileNavOpen ? " active" : ""}`}>
         <div className="mobile-nav-content">
-          <Link to="/dashboard" className={`mobile-nav-link ${isActive("/dashboard") ? "active" : ""}`}>
+          <Link to="/dashboard" className={`mobile-nav-link ${isActive("/dashboard") ? "active" : ""}`} onClick={() => setMobileNavOpen(false)}>
             <span className="nav-icon">📊</span>
             <span className="nav-text">Dashboard</span>
           </Link>
-          <Link to="/projects" className={`mobile-nav-link ${isActive("/projects") ? "active" : ""}`}>
+          <Link to="/projects" className={`mobile-nav-link ${isActive("/projects") ? "active" : ""}`} onClick={() => setMobileNavOpen(false)}>
             <span className="nav-icon">📁</span>
             <span className="nav-text">Projects</span>
           </Link>

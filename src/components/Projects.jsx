@@ -8,7 +8,7 @@ import { Link } from "react-router-dom"
 import { ProjectCardSkeleton } from "./SkeletonLoader"
 import { sanitizeForFirestore, validateRequiredFields } from "../utils/firestoreUtils"
 import FilterToast from "./FilterToast"
-import "../components.css"
+// import "../components.css"
 export default function Projects() {
   const { user } = useAuth()
   const [projects, setProjects] = useState([])
