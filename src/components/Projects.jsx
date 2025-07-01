@@ -40,6 +40,9 @@ export default function Projects() {
   const [showToast, setShowToast] = useState(false)
   const [error, setError] = useState("")
 
+  const [customStartDate, setCustomStartDate] = useState("")
+  const [customEndDate, setCustomEndDate] = useState("")
+
   const getProjectStatus = (project) => {
     if (!project.startDate || !project.endDate) return "active"
 
@@ -141,7 +144,21 @@ export default function Projects() {
         }
       }
 
-      const result = matchesSearch && matchesStatus && matchesDate
+      // Custom date range filter
+      let matchesCustomDate = true
+      if (customStartDate && customEndDate) {
+        const projectStart = project.startDate ? new Date(project.startDate) : null
+        const projectEnd = project.endDate ? new Date(project.endDate) : null
+        const filterStart = new Date(customStartDate)
+        const filterEnd = new Date(customEndDate)
+        // Check for overlap
+        matchesCustomDate =
+          projectStart && projectEnd &&
+          projectEnd >= filterStart &&
+          projectStart <= filterEnd
+      }
+
+      const result = matchesSearch && matchesStatus && matchesDate && matchesCustomDate
       console.log(
         `Project ${project.name}: search=${matchesSearch}, status=${matchesStatus}, date=${matchesDate}, result=${result}`,
       )
@@ -194,7 +211,7 @@ export default function Projects() {
     })
 
     return filtered
-  }, [projects, searchTerm, statusFilter, dateFilter, sortBy, sortOrder])
+  }, [projects, searchTerm, statusFilter, dateFilter, sortBy, sortOrder, customStartDate, customEndDate])
 
   const handleCreateProject = async (e) => {
     e.preventDefault()
@@ -303,6 +320,8 @@ const handleDeleteProject = async (projectId) => {
     setSortBy("name")
     setSortOrder("asc")
     setShowFilters(false)
+    setCustomStartDate("")
+    setCustomEndDate("")
     showFilterToast("All filters cleared", "info")
   }
 
@@ -389,7 +408,7 @@ const handleDeleteProject = async (projectId) => {
                 </select>
               </div>
 
-              <div className="filter-group">
+              {/* <div className="filter-group">
                 <label>Date Range</label>
                 <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
                   <option value="all">All Dates</option>
@@ -399,7 +418,7 @@ const handleDeleteProject = async (projectId) => {
                   <option value="this-month">This Month</option>
                   <option value="this-year">This Year</option>
                 </select>
-              </div>
+              </div> */}
 
               <div className="filter-group">
                 <label>Sort By</label>
@@ -418,6 +437,32 @@ const handleDeleteProject = async (projectId) => {
                   <option value="asc">Ascending</option>
                   <option value="desc">Descending</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="filters-row">
+              <div className="filter-group">
+                <label>Custom Date Range</label>
+                <div className="date-range-row" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    style={{ minWidth: 0 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    style={{ minWidth: 0 }}
+                  />
+                  {(customStartDate || customEndDate) && (
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setCustomStartDate(""); setCustomEndDate(""); }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

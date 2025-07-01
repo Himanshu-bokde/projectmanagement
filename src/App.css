@@ -1910,3 +1910,20 @@ body {
     gap: 0.5rem;
   }
 }
+
+@media (max-width: 600px) {
+  .filter-group input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 0.5rem;
+  }
+  .filter-group .date-range-row {
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: stretch;
+    display: flex;
+  }
+  .filter-group .btn {
+    width: 100%;
+  }
+}
