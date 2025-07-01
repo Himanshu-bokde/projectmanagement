@@ -1666,14 +1666,16 @@ body {
 /* Filter Toast */
 .filter-toast {
   position: fixed;
-  top: 20px;
+  bottom: 20px;
   right: 20px;
+  z-index: 2000;
+  max-width: 350px;
+  width: auto;
+  padding: 0.875rem 1.25rem;
   background-color: var(--primary-color);
   color: white;
-  padding: 0.875rem 1.25rem;
   border-radius: 0.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1682,6 +1684,19 @@ body {
   animation: slideInRight 0.3s ease-out;
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
+}
+
+@media (max-width: 600px) {
+  .filter-toast {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 90vw;
+    max-width: 95vw;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
 }
 
 @keyframes modalFadeIn {
@@ -1879,5 +1894,19 @@ body {
 
   .project-card {
     padding: 1rem;
+  }
+}
+
+.table-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .table-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
   }
 }

@@ -38,16 +38,32 @@ export default function PieChart({ data }) {
       ctx.lineWidth = 2
       ctx.stroke()
 
-      // Draw labels
+      // Draw labels further out and avoid overlap for small slices
       const labelAngle = currentAngle + sliceAngle / 2
-      const labelX = centerX + Math.cos(labelAngle) * (radius + 20)
-      const labelY = centerY + Math.sin(labelAngle) * (radius + 20)
+      let labelRadius = radius + 40 // increased from 20 to 40
+      let labelX = centerX + Math.cos(labelAngle) * labelRadius
+      let labelY = centerY + Math.sin(labelAngle) * labelRadius
+      const percent = item.value / total
+
+      // Clamp label positions to stay within canvas
+      const margin = 20
+      labelX = Math.max(margin, Math.min(width - margin, labelX))
+      labelY = Math.max(margin, Math.min(height - margin, labelY))
 
       ctx.fillStyle = "#374151"
       ctx.font = "12px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(`${item.name}`, labelX, labelY)
-      ctx.fillText(`${item.value}`, labelX, labelY + 15)
+      // Abbreviate long status names for better fit
+      let labelName = item.name
+      if (labelName.toLowerCase() === "inprogress" || labelName.toLowerCase() === "in progress") labelName = "InProg"
+      if (labelName.toLowerCase() === "pending") labelName = "Pend"
+
+      if (percent > 0.12) {
+        ctx.fillText(`${labelName}`, labelX, labelY)
+        ctx.fillText(`${item.value}`, labelX, labelY + 15)
+      } else {
+        ctx.fillText(`${item.value}`, labelX, labelY)
+      }
 
       currentAngle += sliceAngle
     })

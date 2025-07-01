@@ -542,9 +542,9 @@ const handleDeleteProject = async (projectId) => {
                   <button onClick={() => handleEditProject(project)} className="btn-edit">
                     ✏️
                   </button>
-                  <button onClick={() => handleDeleteProject(project.id)} className="btn-delete">
+                  {/* <button onClick={() => handleDeleteProject(project.id)} className="btn-delete">
                     🗑️
-                  </button>
+                  </button> */}
                 </div>
               </div>
               <p className="project-description">{project.description || "No description"}</p>

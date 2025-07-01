@@ -28,6 +28,10 @@ export default function ProjectDetail() {
     unitWeight: "",
     quantity: "",
   })
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordInput, setPasswordInput] = useState("")
+  const [jobIdToDelete, setJobIdToDelete] = useState(null)
+  const [toastMsg, setToastMsg] = useState("")
 
   useEffect(() => {
     fetchProjectAndJobs()
@@ -102,14 +106,31 @@ export default function ProjectDetail() {
     }
   }
 
-  const handleDeleteJob = async (jobId) => {
-    if (window.confirm("Are you sure you want to delete this job?")) {
-      try {
-        await deleteDoc(doc(db, "jobs", jobId))
-        fetchProjectAndJobs()
-      } catch (error) {
-        console.error("Error deleting job:", error)
-      }
+  const handleDeleteJob = (jobId) => {
+    setJobIdToDelete(jobId)
+    setShowPasswordModal(true)
+    setPasswordInput("")
+  }
+
+  const confirmDeleteJob = async (e) => {
+    e.preventDefault()
+    // Replace 'delete123' with your real password logic
+    if (passwordInput !== "delete123") {
+      setToastMsg("Incorrect password! Job not deleted.")
+      setShowPasswordModal(false)
+      setTimeout(() => setToastMsg(""), 3000)
+      return
+    }
+    try {
+      await deleteDoc(doc(db, "jobs", jobIdToDelete))
+      setToastMsg("Job deleted successfully.")
+      setShowPasswordModal(false)
+      setTimeout(() => setToastMsg(""), 3000)
+      fetchProjectAndJobs()
+    } catch (error) {
+      setToastMsg("Error deleting job.")
+      setShowPasswordModal(false)
+      setTimeout(() => setToastMsg(""), 3000)
     }
   }
 
@@ -389,6 +410,49 @@ export default function ProjectDetail() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Enter Password to Delete</h2>
+              <button onClick={() => setShowPasswordModal(false)} className="modal-close">
+                ✕
+              </button>
+            </div>
+            <form onSubmit={confirmDeleteJob} className="modal-form">
+              <div className="form-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-danger">
+                  Delete
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toastMsg && (
+        <div className="filter-toast" style={{ position: "fixed", bottom: 20, right: 20, zIndex: 2000 }}>
+          {toastMsg}
         </div>
       )}
     </div>
