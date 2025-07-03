@@ -45,25 +45,36 @@ export default function PieChart({ data }) {
       let labelY = centerY + Math.sin(labelAngle) * labelRadius
       const percent = item.value / total
 
-      // Clamp label positions to stay within canvas
+      // Clamp label positions only if they go outside the canvas
       const margin = 20
-      labelX = Math.max(margin, Math.min(width - margin, labelX))
-      labelY = Math.max(margin, Math.min(height - margin, labelY))
+      if (labelX < margin) labelX = margin
+      if (labelX > width - margin) labelX = width - margin
+      if (labelY < margin) labelY = margin
+      if (labelY > height - margin) labelY = height - margin
 
-      ctx.fillStyle = "#374151"
+      // Set label color for high contrast in both dark and light themes
+      ctx.fillStyle = "#22223b" // very dark blue/gray
+      ctx.shadowColor = "#fff"
+      ctx.shadowBlur = 2
       ctx.font = "12px Arial"
       ctx.textAlign = "center"
       // Abbreviate long status names for better fit
       let labelName = item.name
+      if (labelName.toLowerCase() === "completed") labelName = "Complet"
       if (labelName.toLowerCase() === "inprogress" || labelName.toLowerCase() === "in progress") labelName = "InProg"
       if (labelName.toLowerCase() === "pending") labelName = "Pend"
 
+      // Always show the label, even for small slices
       if (percent > 0.12) {
         ctx.fillText(`${labelName}`, labelX, labelY)
         ctx.fillText(`${item.value}`, labelX, labelY + 15)
       } else {
-        ctx.fillText(`${item.value}`, labelX, labelY)
+        ctx.fillText(`${labelName}`, labelX, labelY)
+        ctx.fillText(`${item.value}`, labelX, labelY + 13)
       }
+      // Reset shadow for next drawing
+      ctx.shadowColor = "transparent"
+      ctx.shadowBlur = 0
 
       currentAngle += sliceAngle
     })

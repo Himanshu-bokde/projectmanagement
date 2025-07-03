@@ -104,6 +104,15 @@ export default function JobDetail() {
   const handleStepToggle = async (stepIndex) => {
     if (!job) return
 
+    // Enforce sequential completion: all previous steps must be completed
+    if (stepIndex > 0) {
+      const prevStepsCompleted = job.steps.slice(0, stepIndex).every((s) => s.completed)
+      if (!prevStepsCompleted) {
+        alert("Please complete previous steps in order before marking this step as complete.")
+        return
+      }
+    }
+
     const updatedSteps = [...job.steps]
     const step = updatedSteps[stepIndex]
 

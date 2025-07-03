@@ -267,6 +267,48 @@ export default function ProjectDetail() {
           </div>
         </div>
 
+        {/* Project Jobs Progress Bar */}
+        <div className="project-progress-bar" style={{ margin: "1rem 0" }}>
+          {jobs.length > 0 && (
+            <div style={{ width: "100%", maxWidth: 600, margin: "0 auto" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: 14,
+                  marginBottom: 4,
+                }}
+              >
+                <span>Jobs Progress</span>
+                <span>
+                  {jobs.filter((j) => j.status === "completed").length} of {jobs.length} jobs completed (
+                  {Math.round((jobs.filter((j) => j.status === "completed").length / jobs.length) * 100)}%)
+                </span>
+              </div>
+              <div
+                style={{
+                  background: "#e5e7eb",
+                  borderRadius: 8,
+                  height: 16,
+                  width: "100%",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(jobs.filter((j) => j.status === "completed").length / jobs.length) * 100}%`,
+                    background: "linear-gradient(90deg, #a78bfa, #7c3aed)",
+                    height: "100%",
+                    borderRadius: 8,
+                    transition: "width 0.4s",
+                  }}
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="jobs-table">
           <table>
             <thead>
