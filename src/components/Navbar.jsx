@@ -25,8 +25,24 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="nav-container">
         <div className="nav-brand">
-          <Link to="/dashboard" className="brand-link">
-            <h2>📁 ProjectManager</h2>
+          <Link to="/dashboard" className="brand-link" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              height: '54px',
+              width: '54px',
+            }}>
+              <img
+                src="/image.jpg"
+                alt="Keshavam Industries Logo"
+                className="navbar-logo"
+                style={{ height: '54px', width: '54px', objectFit: 'contain', borderRadius: '50%' }}
+              />
+            </span>
+            <h2 style={{ margin: 0, fontSize: '1.35rem', letterSpacing: '1px' }}>KESHAVAM INDUSTRIES</h2>
           </Link>
         </div>
 
