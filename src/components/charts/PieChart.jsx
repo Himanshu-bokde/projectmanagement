@@ -56,7 +56,7 @@ export default function PieChart({ data }) {
       ctx.fillStyle = "#22223b" // very dark blue/gray
       ctx.shadowColor = "#fff"
       ctx.shadowBlur = 2
-      ctx.font = "12px Arial"
+      ctx.font = "bold 13px Arial" // increased font size and made bold for better visibility
       ctx.textAlign = "center"
       // Abbreviate long status names for better fit
       let labelName = item.name
