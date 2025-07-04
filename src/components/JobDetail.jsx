@@ -282,7 +282,7 @@ export default function JobDetail() {
                   id={`step-${index}`}
                 />
                 <label htmlFor={`step-${index}`} className="step-label">
-                  {step.completed ? "✅" : "⭕"} {step.name}
+                  {step.name}
                 </label>
               </div>
               {step.completed && step.completedAt && (
