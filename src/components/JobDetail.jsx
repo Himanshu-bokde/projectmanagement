@@ -19,6 +19,7 @@ export default function JobDetail() {
     unitWeight: "",
     quantity: "",
   })
+  const [selectedSubJobIndex, setSelectedSubJobIndex] = useState(0)
 
   useEffect(() => {
     fetchJobAndProject()
@@ -104,42 +105,67 @@ export default function JobDetail() {
   const handleStepToggle = async (stepIndex) => {
     if (!job) return
 
-    // Enforce sequential completion: all previous steps must be completed
-    if (stepIndex > 0) {
-      const prevStepsCompleted = job.steps.slice(0, stepIndex).every((s) => s.completed)
-      if (!prevStepsCompleted) {
-        alert("Please complete previous steps in order before marking this step as complete.")
-        return
+    // Use subJobs if present, else fallback to steps (for backward compatibility)
+    const hasSubJobs = Array.isArray(job.subJobs) && job.subJobs.length > 0
+    if (hasSubJobs) {
+      // Sequential validation for sub-job steps
+      if (stepIndex > 0) {
+        const prevStepsCompleted = job.subJobs[selectedSubJobIndex].steps.slice(0, stepIndex).every((s) => s.completed)
+        if (!prevStepsCompleted) {
+          alert("Please complete previous steps in order before marking this step as complete.")
+          return
+        }
       }
-    }
-
-    const updatedSteps = [...job.steps]
-    const step = updatedSteps[stepIndex]
-
-    step.completed = !step.completed
-    step.completedAt = step.completed ? new Date().toISOString() : null
-
-    // Update job status based on completed steps
-    const completedSteps = updatedSteps.filter((s) => s.completed).length
-    const totalSteps = updatedSteps.length
-    let status = "pending"
-
-    if (completedSteps === totalSteps) {
-      status = "completed"
-    } else if (completedSteps > 0) {
-      status = "in-progress"
-    }
-
-    try {
-      await updateDoc(doc(db, "jobs", jobId), {
-        steps: updatedSteps,
-        status: status,
-        updatedAt: new Date(),
+      // Update steps for selected sub-job
+      const updatedSubJobs = job.subJobs.map((subJob, idx) => {
+        if (idx !== selectedSubJobIndex) return subJob
+        const updatedSteps = [...subJob.steps]
+        const step = updatedSteps[stepIndex]
+        step.completed = !step.completed
+        step.completedAt = step.completed ? new Date().toISOString() : null
+        return { ...subJob, steps: updatedSteps }
       })
-
-      setJob({ ...job, steps: updatedSteps, status })
-    } catch (error) {
-      console.error("Error updating step:", error)
+      try {
+        await updateDoc(doc(db, "jobs", jobId), {
+          subJobs: updatedSubJobs,
+          updatedAt: new Date(),
+        })
+        setJob({ ...job, subJobs: updatedSubJobs })
+      } catch (error) {
+        console.error("Error updating step:", error)
+      }
+    } else {
+      // Fallback: old jobs with top-level steps
+      if (stepIndex > 0) {
+        const prevStepsCompleted = job.steps.slice(0, stepIndex).every((s) => s.completed)
+        if (!prevStepsCompleted) {
+          alert("Please complete previous steps in order before marking this step as complete.")
+          return
+        }
+      }
+      const updatedSteps = [...job.steps]
+      const step = updatedSteps[stepIndex]
+      step.completed = !step.completed
+      step.completedAt = step.completed ? new Date().toISOString() : null
+      // Update job status based on completed steps
+      const completedSteps = updatedSteps.filter((s) => s.completed).length
+      const totalSteps = updatedSteps.length
+      let status = "pending"
+      if (completedSteps === totalSteps) {
+        status = "completed"
+      } else if (completedSteps > 0) {
+        status = "in-progress"
+      }
+      try {
+        await updateDoc(doc(db, "jobs", jobId), {
+          steps: updatedSteps,
+          status: status,
+          updatedAt: new Date(),
+        })
+        setJob({ ...job, steps: updatedSteps, status })
+      } catch (error) {
+        console.error("Error updating step:", error)
+      }
     }
   }
 
@@ -151,8 +177,13 @@ export default function JobDetail() {
     return <div className="error-message">Job or Project not found</div>
   }
 
-  const completedSteps = job.steps.filter((step) => step.completed).length
-  const progressPercentage = (completedSteps / job.steps.length) * 100
+  // Use subJobs if present, else fallback to steps (for backward compatibility)
+  const hasSubJobs = Array.isArray(job.subJobs) && job.subJobs.length > 0
+  const subJobs = hasSubJobs ? job.subJobs : null
+  const steps = hasSubJobs ? subJobs[selectedSubJobIndex]?.steps || [] : job.steps || []
+
+  const completedSteps = steps.filter((step) => step.completed).length
+  const progressPercentage = steps.length > 0 ? (completedSteps / steps.length) * 100 : 0
 
   return (
     <div className="job-detail">
@@ -195,15 +226,38 @@ export default function JobDetail() {
             <div className="progress-fill" style={{ width: `${progressPercentage}%` }}></div>
           </div>
           <p>
-            {completedSteps} of {job.steps.length} steps completed ({Math.round(progressPercentage)}%)
+            {completedSteps} of {steps.length} steps completed ({Math.round(progressPercentage)}%)
           </p>
         </div>
       </div>
 
       <div className="steps-section">
+        {hasSubJobs && (
+          <div className="subjobs-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: 16 }}>
+            {subJobs.map((subJob, idx) => (
+              <button
+                key={idx}
+                className={`subjob-btn${selectedSubJobIndex === idx ? ' active' : ''}`}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: 6,
+                  border: selectedSubJobIndex === idx ? '2px solid #7c3aed' : '1px solid #ccc',
+                  background: selectedSubJobIndex === idx ? '#ede9fe' : '#fff',
+                  fontWeight: selectedSubJobIndex === idx ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  minWidth: 80,
+                  transition: 'all 0.2s',
+                }}
+                onClick={() => setSelectedSubJobIndex(idx)}
+              >
+                {subJob.name}
+              </button>
+            ))}
+          </div>
+        )}
         <h3>📋 Job Steps</h3>
         <div className="steps-list">
-          {job.steps.map((step, index) => (
+          {steps.map((step, index) => (
             <div key={index} className={`step-item ${step.completed ? "completed" : ""}`}>
               <div className="step-checkbox">
                 <input

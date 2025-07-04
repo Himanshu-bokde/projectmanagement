@@ -72,7 +72,26 @@ export default function ProjectDetail() {
     try {
       const unitWeight = parseNumericField(newJob.unitWeight)
       const quantity = parseNumericField(newJob.quantity)
-
+      // Create subJobs array with steps for each sub-job
+      const subJobs = Array.from({ length: quantity }, (_, i) => ({
+        name: `${newJob.name} V${i + 1}`,
+        steps: [
+          { name: "Raw material inspection", completed: false, completedAt: null },
+          { name: "Nesting", completed: false, completedAt: null },
+          { name: "Cutting", completed: false, completedAt: null },
+          { name: "H Beam", completed: false, completedAt: null },
+          { name: "Built up", completed: false, completedAt: null },
+          { name: "Fitup", completed: false, completedAt: null },
+          { name: "Fitup inspection", completed: false, completedAt: null },
+          { name: "Welding", completed: false, completedAt: null },
+          { name: "Finishing", completed: false, completedAt: null },
+          { name: "Finishing visual inspection", completed: false, completedAt: null },
+          { name: "Blasting", completed: false, completedAt: null },
+          { name: "Painting", completed: false, completedAt: null },
+          { name: "Painting inspection", completed: false, completedAt: null },
+          { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
+        ],
+      }))
       const jobData = sanitizeForFirestore(
         {
           ...newJob,
@@ -83,22 +102,7 @@ export default function ProjectDetail() {
           totalWeight: unitWeight * quantity,
           status: "pending",
           createdAt: new Date(),
-          steps: [
-            { name: "Raw material inspection", completed: false, completedAt: null },
-            { name: "Nesting", completed: false, completedAt: null },
-            { name: "Cutting", completed: false, completedAt: null },
-            { name: "H Beam", completed: false, completedAt: null },
-            { name: "Built up", completed: false, completedAt: null },
-            { name: "Fitup", completed: false, completedAt: null },
-            { name: "Fitup inspection", completed: false, completedAt: null },
-            { name: "Welding", completed: false, completedAt: null },
-            { name: "Finishing", completed: false, completedAt: null },
-            { name: "Finishing visual inspection", completed: false, completedAt: null },
-            { name: "Blasting", completed: false, completedAt: null },
-            { name: "Painting", completed: false, completedAt: null },
-            { name: "Painting inspection", completed: false, completedAt: null },
-            { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
-          ],
+          subJobs,
         },
         ["description"],
       )
