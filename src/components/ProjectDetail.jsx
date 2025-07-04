@@ -74,7 +74,7 @@ export default function ProjectDetail() {
       const quantity = parseNumericField(newJob.quantity)
       // Create subJobs array with steps for each sub-job
       const subJobs = Array.from({ length: quantity }, (_, i) => ({
-        name: `${newJob.name} V${i + 1}`,
+        name: `${newJob.name}-${i + 1}`,
         steps: [
           { name: "Raw material inspection", completed: false, completedAt: null },
           { name: "Nesting", completed: false, completedAt: null },
