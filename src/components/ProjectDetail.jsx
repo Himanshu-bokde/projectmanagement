@@ -194,6 +194,16 @@ export default function ProjectDetail() {
 
   const filteredJobs = jobs.filter((job) => job.name.toLowerCase().includes(searchTerm.toLowerCase()))
 
+  // Helper to check if a job is completed (status or all sub-jobs' steps)
+  const isJobCompleted = (job) => {
+    if (Array.isArray(job.subJobs) && job.subJobs.length > 0) {
+      return job.subJobs.every(
+        (sub) => Array.isArray(sub.steps) && sub.steps.length > 0 && sub.steps.every((s) => s.completed)
+      )
+    }
+    return job.status === "completed"
+  }
+
   if (loading) {
     return (
       <div className="project-detail">
@@ -273,44 +283,47 @@ export default function ProjectDetail() {
 
         {/* Project Jobs Progress Bar */}
         <div className="project-progress-bar" style={{ margin: "1rem 0" }}>
-          {jobs.length > 0 && (
-            <div style={{ width: "100%", maxWidth: 600, margin: "0 auto" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: 14,
-                  marginBottom: 4,
-                }}
-              >
-                <span>Jobs Progress</span>
-                <span>
-                  {jobs.filter((j) => j.status === "completed").length} of {jobs.length} jobs completed (
-                  {Math.round((jobs.filter((j) => j.status === "completed").length / jobs.length) * 100)}%)
-                </span>
-              </div>
-              <div
-                style={{
-                  background: "#e5e7eb",
-                  borderRadius: 8,
-                  height: 16,
-                  width: "100%",
-                  overflow: "hidden",
-                }}
-              >
+          {jobs.length > 0 && (() => {
+            const completedCount = jobs.filter(isJobCompleted).length
+            const percent = Math.round((completedCount / jobs.length) * 100)
+            return (
+              <div style={{ width: "100%", maxWidth: 600, margin: "0 auto" }}>
                 <div
                   style={{
-                    width: `${(jobs.filter((j) => j.status === "completed").length / jobs.length) * 100}%`,
-                    background: "linear-gradient(90deg, #a78bfa, #7c3aed)",
-                    height: "100%",
-                    borderRadius: 8,
-                    transition: "width 0.4s",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: 14,
+                    marginBottom: 4,
                   }}
-                ></div>
+                >
+                  <span>Jobs Progress</span>
+                  <span>
+                    {completedCount} of {jobs.length} jobs completed ({percent}%)
+                  </span>
+                </div>
+                <div
+                  style={{
+                    background: "#e5e7eb",
+                    borderRadius: 8,
+                    height: 16,
+                    width: "100%",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${percent}%`,
+                      background: "linear-gradient(90deg, #a78bfa, #7c3aed)",
+                      height: "100%",
+                      borderRadius: 8,
+                      transition: "width 0.4s",
+                    }}
+                  ></div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         <div className="jobs-table">

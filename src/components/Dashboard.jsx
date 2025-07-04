@@ -68,6 +68,39 @@ export default function Dashboard() {
     }
   }
 
+  // Helper to check if a job is completed (status or all sub-jobs' steps)
+  const isJobCompleted = (job) => {
+    if (Array.isArray(job.subJobs) && job.subJobs.length > 0) {
+      return job.subJobs.every(
+        (sub) => Array.isArray(sub.steps) && sub.steps.length > 0 && sub.steps.every((s) => s.completed)
+      )
+    }
+    return job.status === "completed"
+  }
+
+  // Helper to check if a job is in progress (any sub-job step is completed, but not all)
+  const isJobInProgress = (job) => {
+    if (Array.isArray(job.subJobs) && job.subJobs.length > 0) {
+      const allCompleted = isJobCompleted(job)
+      const anyStep = job.subJobs.some(
+        (sub) => Array.isArray(sub.steps) && sub.steps.some((s) => s.completed)
+      )
+      return anyStep && !allCompleted
+    }
+    return job.status === "in-progress"
+  }
+
+  // Helper to check if a job is pending (no steps completed)
+  const isJobPending = (job) => {
+    if (Array.isArray(job.subJobs) && job.subJobs.length > 0) {
+      const anyStep = job.subJobs.some(
+        (sub) => Array.isArray(sub.steps) && sub.steps.some((s) => s.completed)
+      )
+      return !anyStep
+    }
+    return job.status === "pending"
+  }
+
   const getProjectStats = () => {
     return projects.map((project) => {
       const projectJobs = jobs.filter((job) => job.projectId === project.id)
@@ -155,9 +188,9 @@ export default function Dashboard() {
   const overallStats = getOverallStats()
   const recentActivity = getRecentActivity()
   const totalJobs = jobs.length
-  const completedJobs = jobs.filter((job) => job.status === "completed").length
-  const inProgressJobs = jobs.filter((job) => job.status === "in-progress").length
-  const pendingJobs = jobs.filter((job) => job.status === "pending").length
+  const completedJobs = jobs.filter(isJobCompleted).length
+  const inProgressJobs = jobs.filter(isJobInProgress).length
+  const pendingJobs = jobs.filter(isJobPending).length
 
   return (
     <div className="dashboard">

@@ -125,12 +125,27 @@ export default function JobDetail() {
         step.completedAt = step.completed ? new Date().toISOString() : null
         return { ...subJob, steps: updatedSteps }
       })
+      // Check if all sub-jobs are completed
+      const allSubJobsCompleted = updatedSubJobs.every(
+        (sub) => Array.isArray(sub.steps) && sub.steps.length > 0 && sub.steps.every((s) => s.completed)
+      )
+      // Check if any step is completed in any sub-job
+      const anyStepCompleted = updatedSubJobs.some(
+        (sub) => Array.isArray(sub.steps) && sub.steps.some((s) => s.completed)
+      )
+      let status = "pending"
+      if (allSubJobsCompleted) {
+        status = "completed"
+      } else if (anyStepCompleted) {
+        status = "in-progress"
+      }
       try {
         await updateDoc(doc(db, "jobs", jobId), {
           subJobs: updatedSubJobs,
+          status: status,
           updatedAt: new Date(),
         })
-        setJob({ ...job, subJobs: updatedSubJobs })
+        setJob({ ...job, subJobs: updatedSubJobs, status })
       } catch (error) {
         console.error("Error updating step:", error)
       }
