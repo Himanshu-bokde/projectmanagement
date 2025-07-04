@@ -22,6 +22,11 @@ export default function BarChart({ data }) {
     const barWidth = chartWidth / data.length - 20
     const maxValue = Math.max(...data.map((d) => d.total)) || 1
 
+    // Detect theme for label color
+    const isDark = document.body.classList.contains('dark')
+    const labelColor = isDark ? '#fff' : '#000'
+    const valueColor = isDark ? '#fff' : '#000'
+
     // Draw bars
     data.forEach((item, index) => {
       const x = padding + index * (chartWidth / data.length) + 10
@@ -39,12 +44,21 @@ export default function BarChart({ data }) {
       ctx.lineWidth = 2
       ctx.strokeRect(x, totalY, barWidth, totalBarHeight)
 
-      // Draw labels
-      ctx.fillStyle = "#374151"
-      ctx.font = "12px Arial"
+      // Draw project name label (larger, bold, high-contrast)
+      ctx.save()
+      ctx.fillStyle = labelColor
+      ctx.font = "bold 16px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(item.name, x + barWidth / 2, height - padding + 20)
-      ctx.fillText(`${item.completed}/${item.total}`, x + barWidth / 2, height - padding + 35)
+      ctx.fillText(item.name, x + barWidth / 2, height - padding + 24)
+      ctx.restore()
+      // Draw completed/total ratio label (larger, bold, high-contrast)
+      ctx.save()
+      ctx.fillStyle = valueColor
+      ctx.font = "bold 15px Arial"
+      ctx.textAlign = "center"
+      const ratio = item.total > 0 ? `${item.completed}/${item.total} (${Math.round((item.completed/item.total)*100)}%)` : "0/0 (0%)"
+      ctx.fillText(ratio, x + barWidth / 2, height - padding + 44)
+      ctx.restore()
     })
 
     // Draw axes

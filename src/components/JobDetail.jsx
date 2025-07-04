@@ -245,7 +245,7 @@ export default function JobDetail() {
           </p>
         </div>
       </div>
-
+{console.log("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",subJobs)}
       <div className="steps-section">
         {hasSubJobs && (
           <div className="subjobs-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: 16 }}>

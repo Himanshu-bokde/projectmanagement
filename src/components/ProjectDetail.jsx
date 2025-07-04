@@ -166,6 +166,58 @@ export default function ProjectDetail() {
     try {
       const unitWeight = parseNumericField(editJob.unitWeight)
       const quantity = parseNumericField(editJob.quantity)
+      let updatedSubJobs
+      const newQuantity = Number(quantity)
+      // Always rebuild subJobs array to match new quantity and name
+      if (Array.isArray(jobs.find((j) => j.id === editingJob)?.subJobs)) {
+        const oldSubJobs = jobs.find((j) => j.id === editingJob)?.subJobs || []
+        updatedSubJobs = Array.from({ length: newQuantity }, (_, i) => {
+          const existing = oldSubJobs[i]
+          return {
+            name: `${editJob.name}-${i + 1}`,
+            steps:
+              existing && Array.isArray(existing.steps)
+                ? existing.steps.map((step) => ({ ...step }))
+                : [
+                    { name: "Raw material inspection", completed: false, completedAt: null },
+                    { name: "Nesting", completed: false, completedAt: null },
+                    { name: "Cutting", completed: false, completedAt: null },
+                    { name: "H Beam", completed: false, completedAt: null },
+                    { name: "Built up", completed: false, completedAt: null },
+                    { name: "Fitup", completed: false, completedAt: null },
+                    { name: "Fitup inspection", completed: false, completedAt: null },
+                    { name: "Welding", completed: false, completedAt: null },
+                    { name: "Finishing", completed: false, completedAt: null },
+                    { name: "Finishing visual inspection", completed: false, completedAt: null },
+                    { name: "Blasting", completed: false, completedAt: null },
+                    { name: "Painting", completed: false, completedAt: null },
+                    { name: "Painting inspection", completed: false, completedAt: null },
+                    { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
+                  ],
+          }
+        })
+      } else {
+        // If no subJobs exist, create from scratch
+        updatedSubJobs = Array.from({ length: newQuantity }, (_, i) => ({
+          name: `${editJob.name}-${i + 1}`,
+          steps: [
+            { name: "Raw material inspection", completed: false, completedAt: null },
+            { name: "Nesting", completed: false, completedAt: null },
+            { name: "Cutting", completed: false, completedAt: null },
+            { name: "H Beam", completed: false, completedAt: null },
+            { name: "Built up", completed: false, completedAt: null },
+            { name: "Fitup", completed: false, completedAt: null },
+            { name: "Fitup inspection", completed: false, completedAt: null },
+            { name: "Welding", completed: false, completedAt: null },
+            { name: "Finishing", completed: false, completedAt: null },
+            { name: "Finishing visual inspection", completed: false, completedAt: null },
+            { name: "Blasting", completed: false, completedAt: null },
+            { name: "Painting", completed: false, completedAt: null },
+            { name: "Painting inspection", completed: false, completedAt: null },
+            { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
+          ],
+        }))
+      }
 
       const jobData = sanitizeForFirestore(
         {
@@ -174,6 +226,7 @@ export default function ProjectDetail() {
           quantity,
           totalWeight: unitWeight * quantity,
           updatedAt: new Date(),
+          subJobs: updatedSubJobs,
         },
         ["description"],
       )
