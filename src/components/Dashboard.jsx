@@ -16,6 +16,12 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  
+  // State for project and step selection
+  const [selectedProjectId, setSelectedProjectId] = useState("")
+  const [selectedStep, setSelectedStep] = useState("")
+  const [stepOptions, setStepOptions] = useState([])
+  const [jobCount, setJobCount] = useState(null)
 
   // Move getProjectStatus function before useMemo
   const getProjectStatus = (project) => {
@@ -145,6 +151,75 @@ export default function Dashboard() {
     return recentProjects
   }
 
+  // Update steps when project changes
+  useEffect(() => {
+    console.log("Selected Project ID:", selectedProjectId);
+    if (!selectedProjectId) {
+      setStepOptions([]);
+      setSelectedStep("");
+      return;
+    }
+    
+    // Find all steps in jobs for selected project
+    const projectJobs = jobs.filter(job => job.projectId === selectedProjectId);
+    console.log("Project Jobs:", projectJobs);
+
+    const stepsSet = new Set();
+    projectJobs.forEach(job => {
+      console.log("Processing job:", job);
+      if (job.steps && Array.isArray(job.steps)) {
+        // Direct steps on job
+        job.steps.forEach(step => {
+          if (step.name) stepsSet.add(step.name);
+        });
+      }
+      // Steps in subJobs
+      if (Array.isArray(job.subJobs)) {
+        job.subJobs.forEach(sub => {
+          if (Array.isArray(sub.steps)) {
+            sub.steps.forEach(step => {
+              if (step.name) stepsSet.add(step.name);
+            });
+          }
+        });
+      }
+    });
+    
+    const steps = Array.from(stepsSet);
+    console.log("Found steps:", steps);
+    setStepOptions(steps);
+    setSelectedStep("");
+  }, [selectedProjectId, jobs]);
+
+  // Handler for showing job count
+  const handleShowJobCount = () => {
+    if (!selectedProjectId || !selectedStep) {
+      setJobCount(null);
+      return;
+    }
+    // Count jobs in selected project where selected step is completed
+    const projectJobs = jobs.filter(job => job.projectId === selectedProjectId);
+    let completedCount = 0;
+    let totalCount = 0;
+    
+    projectJobs.forEach(job => {
+      if (Array.isArray(job.subJobs)) {
+        job.subJobs.forEach(sub => {
+          if (Array.isArray(sub.steps)) {
+            const stepObj = sub.steps.find(step => step.name === selectedStep);
+            if (stepObj) {
+              totalCount++;
+              if (stepObj.completed) {
+                completedCount++;
+              }
+            }
+          }
+        });
+      }
+    });
+    setJobCount({ completed: completedCount, total: totalCount });
+  };
+
   if (loading) {
     return (
       <div className="dashboard">
@@ -246,6 +321,84 @@ export default function Dashboard() {
             <div className="stat-label">In Progress</div>
           </div>
         </div> */}
+      </div>
+
+      {/* Project & Step Selection */}
+      <div className="activity-section" style={{ marginBottom: "2rem" }}>
+        <div className="activity-header">
+          <h3>🔎 Job Completion by Project & Step</h3>
+          <p>Select a project and step to see how many jobs are completed.</p>
+        </div>
+        <div className="filters-row" style={{ padding: "1.5rem" }}>
+          <div className="filter-group">
+            <label htmlFor="project-select">Project</label>
+            <select
+              id="project-select"
+              value={selectedProjectId}
+              onChange={(e) => {
+                console.log("Selected project:", e.target.value);
+                setSelectedProjectId(e.target.value);
+              }}
+              required
+              className="form-group"
+              style={{ minWidth: "180px" }}
+            >
+              <option value="">Select Project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label htmlFor="step-select">Step</label>
+            <select
+              id="step-select"
+              value={selectedStep}
+              onChange={(e) => setSelectedStep(e.target.value)}
+              required
+              className="form-group"
+              style={{ minWidth: "180px" }}
+              disabled={!selectedProjectId}
+            >
+              {!selectedProjectId ? (
+                <option value="">Select a project first</option>
+              ) : stepOptions.length === 0 ? (
+                <option value="">No steps found</option>
+              ) : (
+                <>
+                  <option value="">Select Step</option>
+                  {stepOptions.map((step, idx) => (
+                    <option key={idx} value={step}>
+                      {step}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </div>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleShowJobCount}
+            disabled={!selectedProjectId || !selectedStep}
+            style={{ marginTop: "24px" }}
+          >
+            Show Completed Jobs
+          </button>
+          {jobCount !== null && (
+            <div style={{ marginLeft: "16px", fontWeight: 600, fontSize: "1.1rem" }}>
+              <span style={{ color: "var(--success-color)" }}>
+                Completed Jobs: {jobCount.completed} / {jobCount.total}
+              </span>
+              {jobCount.total > 0 && (
+                <span style={{ marginLeft: "8px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                  ({Math.round((jobCount.completed / jobCount.total) * 100)}%)
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-content">

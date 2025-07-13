@@ -276,10 +276,7 @@ export default function ProjectDetail() {
   }
 
   const downloadSampleCsv = () => {
-    const sampleData = `Part Mark,Description,Qty,Unit Weight
-C1,Column Section 1,2,1250.50
-B1,Beam Section 1,4,850.75
-G1,Girder Type 1,3,2100.25`
+    const sampleData = `Part Mark,Description,Qty,Unit Weight`
 
     const blob = new Blob([sampleData], { type: "text/csv" })
     const url = window.URL.createObjectURL(blob)

@@ -62,6 +62,22 @@ export default function Projects() {
     fetchProjects()
   }, [user])
 
+  // Helper to calculate totals for each project
+  const getProjectTotals = async (projectId) => {
+    const jobsQuery = query(collection(db, "jobs"), where("projectId", "==", projectId))
+    const jobsSnapshot = await getDocs(jobsQuery)
+    let totalWeight = 0
+    let totalQty = 0
+    let totalJobs = jobsSnapshot.size
+    jobsSnapshot.forEach((doc) => {
+      const job = doc.data()
+      totalWeight += Number(job.totalWeight || 0)
+      totalQty += Number(job.quantity || 0)
+    })
+    return { totalWeight, totalQty, totalJobs }
+  }
+
+  // Fetch projects and attach totals
   const fetchProjects = async () => {
     try {
       setError("")
@@ -70,14 +86,19 @@ export default function Projects() {
       const querySnapshot = await getDocs(collection(db, "projects"))
       console.log("Query snapshot size:", querySnapshot.size)
 
-      const projectsData = querySnapshot.docs.map((doc) => {
-        const data = doc.data()
-        console.log("Project data:", { id: doc.id, ...data })
-        return {
-          id: doc.id,
-          ...data,
-        }
-      })
+      const projectsData = await Promise.all(
+        querySnapshot.docs.map(async (doc) => {
+          const data = doc.data()
+          const { totalWeight, totalQty, totalJobs } = await getProjectTotals(doc.id)
+          return {
+            id: doc.id,
+            ...data,
+            totalWeight,
+            totalQty,
+            totalJobs,
+          }
+        }),
+      )
 
       console.log("Total projects fetched:", projectsData.length)
       setProjects(projectsData)
@@ -587,9 +608,6 @@ const handleDeleteProject = async (projectId) => {
                   <button onClick={() => handleEditProject(project)} className="btn-edit">
                     ✏️
                   </button>
-                  {/* <button onClick={() => handleDeleteProject(project.id)} className="btn-delete">
-                    🗑️
-                  </button> */}
                 </div>
               </div>
               <p className="project-description">{project.description || "No description"}</p>
@@ -607,7 +625,20 @@ const handleDeleteProject = async (projectId) => {
                   </span>
                 </div>
               </div>
-              {console.log(project)}
+              {/* Hover info overlay for project stats */}
+              <div className="project-hover-info">
+                <div className="project-totals">
+                  <div className="project-total-item">
+                    <span>📦 Jobs:</span> <strong>{project.totalJobs}</strong>
+                  </div>
+                  <div className="project-total-item">
+                    <span>🔢 Total Qty:</span> <strong>{project.totalQty}</strong>
+                  </div>
+                  <div className="project-total-item">
+                    <span>⚖️ Total Weight:</span> <strong>{project.totalWeight.toLocaleString()} kg</strong>
+                  </div>
+                </div>
+              </div>
               <div className="project-actions">
                 <Link to={`/projects/${project.id}`} className="btn btn-secondary">
                   View Jobs
