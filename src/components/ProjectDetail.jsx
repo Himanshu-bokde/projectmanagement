@@ -565,7 +565,23 @@ export default function ProjectDetail() {
             <tbody>
               {filteredJobs.map((job) => (
                 <tr key={job.id}>
-                  <td>{job.name}</td>
+                  <td>
+                    <Link
+                      to={`/projects/${projectId}/jobs/${job.id}`}
+                      style={{
+                        color: 'inherit',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        display: 'block',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        transition: 'background-color 0.2s'
+                      }}
+                      className="hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      {job.name}
+                    </Link>
+                  </td>
                   <td>{job.unitWeight}</td>
                   <td>{job.quantity}</td>
                   <td>{job.totalWeight}</td>

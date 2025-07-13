@@ -30,35 +30,53 @@ export default function BarChart({ data }) {
     // Draw bars
     data.forEach((item, index) => {
       const x = padding + index * (chartWidth / data.length) + 10
-      const barHeight = (item.completed / maxValue) * chartHeight
-      const y = height - padding - barHeight
+      const barWidth = (chartWidth / data.length) - 20
+      const stackY = height - padding
 
-      // Draw completed bar
-      ctx.fillStyle = "#10b981"
-      ctx.fillRect(x, y, barWidth, barHeight)
+      // Calculate heights
+      const maxHeight = item.total || 1
+      const completedHeight = (item.completed / maxHeight) * chartHeight
+      const inProgressHeight = (item.inProgress / maxHeight) * chartHeight
+      const pendingHeight = (item.pending / maxHeight) * chartHeight
 
-      // Draw total bar outline
-      const totalBarHeight = (item.total / maxValue) * chartHeight
-      const totalY = height - padding - totalBarHeight
+      // Draw stacked bars
+      // Pending
+      ctx.fillStyle = item.colors.pending
+      ctx.fillRect(x, stackY - pendingHeight, barWidth, pendingHeight)
+
+      // In Progress
+      ctx.fillStyle = item.colors.inProgress
+      ctx.fillRect(x, stackY - pendingHeight - inProgressHeight, barWidth, inProgressHeight)
+
+      // Completed
+      ctx.fillStyle = item.colors.completed
+      ctx.fillRect(x, stackY - pendingHeight - inProgressHeight - completedHeight, barWidth, completedHeight)
+
+      // Draw outline
       ctx.strokeStyle = "#6b7280"
-      ctx.lineWidth = 2
-      ctx.strokeRect(x, totalY, barWidth, totalBarHeight)
+      ctx.lineWidth = 1
+      ctx.strokeRect(x, stackY - (pendingHeight + inProgressHeight + completedHeight), barWidth, pendingHeight + inProgressHeight + completedHeight)
 
-      // Draw project name label (larger, bold, high-contrast)
+      // Draw project name label
       ctx.save()
       ctx.fillStyle = labelColor
       ctx.font = "bold 16px Arial"
       ctx.textAlign = "center"
       ctx.fillText(item.name, x + barWidth / 2, height - padding + 24)
       ctx.restore()
-      // Draw completed/total ratio label (larger, bold, high-contrast)
+
+      // Draw quantity breakdown
       ctx.save()
       ctx.fillStyle = valueColor
-      ctx.font = "bold 15px Arial"
+      ctx.font = "bold 14px Arial"
       ctx.textAlign = "center"
-      const ratio = item.total > 0 ? `${item.completed}/${item.total} (${Math.round((item.completed/item.total)*100)}%)` : "0/0 (0%)"
-      ctx.fillText(ratio, x + barWidth / 2, height - padding + 44)
+      const totalQuantity = item.total || 0
+      const breakdownText = `${item.completed}/${totalQuantity}`
+      const percentText = totalQuantity > 0 ? ` (${Math.round((item.completed/totalQuantity)*100)}%)` : " (0%)"
+      ctx.fillText(breakdownText + percentText, x + barWidth / 2, height - padding + 44)
       ctx.restore()
+
+      // Legend was removed as it's now shown below the chart
     })
 
     // Draw axes
@@ -71,5 +89,48 @@ export default function BarChart({ data }) {
     ctx.stroke()
   }, [data])
 
-  return <canvas ref={canvasRef} width={600} height={400} className="chart-canvas" />
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <canvas ref={canvasRef} width={600} height={400} className="chart-canvas" />
+      {/* Legend */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16, marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <span style={{
+            display: "inline-block",
+            width: 16,
+            height: 16,
+            borderRadius: 4,
+            background: "#10b981",
+            marginRight: 6,
+            border: "1px solid #ccc"
+          }}></span>
+          <span style={{ fontWeight: 600 }}>Completed</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <span style={{
+            display: "inline-block",
+            width: 16,
+            height: 16,
+            borderRadius: 4,
+            background: "#f59e0b",
+            marginRight: 6,
+            border: "1px solid #ccc"
+          }}></span>
+          <span style={{ fontWeight: 600 }}>In Progress</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <span style={{
+            display: "inline-block",
+            width: 16,
+            height: 16,
+            borderRadius: 4,
+            background: "#ef4444",
+            marginRight: 6,
+            border: "1px solid #ccc"
+          }}></span>
+          <span style={{ fontWeight: 600 }}>Pending</span>
+        </div>
+      </div>
+    </div>
+  )
 }

@@ -111,18 +111,62 @@ export default function Dashboard() {
 
   const getProjectStats = () => {
     return projects.map((project) => {
-      const projectJobs = jobs.filter((job) => job.projectId === project.id)
-      const completedJobs = projectJobs.filter((job) => job.status === "completed").length
-      const totalJobs = projectJobs.length
-      const completionRate = totalJobs > 0 ? (completedJobs / totalJobs) * 100 : 0
+      const projectJobs = jobs.filter((job) => job.projectId === project.id);
+      let completedQuantity = 0;
+      let inProgressQuantity = 0;
+      let pendingQuantity = 0;
+
+      projectJobs.forEach((job) => {
+        const jobQuantity = Number(job.quantity) || 0;
+        
+        if (Array.isArray(job.subJobs) && job.subJobs.length > 0) {
+          // Calculate completed subJobs
+          const totalSubJobs = job.subJobs.length;
+          const completedSubJobs = job.subJobs.filter(sub => 
+            Array.isArray(sub.steps) && 
+            sub.steps.length > 0 && 
+            sub.steps.every(s => s.completed)
+          ).length;
+          
+          // Calculate proportions based on completed subJobs
+          const subJobProgress = completedSubJobs / totalSubJobs;
+          completedQuantity += jobQuantity * (completedSubJobs / totalSubJobs);
+          
+          if (completedSubJobs === 0) {
+            pendingQuantity += jobQuantity;
+          } else if (completedSubJobs < totalSubJobs) {
+            inProgressQuantity += jobQuantity * ((totalSubJobs - completedSubJobs) / totalSubJobs);
+          }
+        } else {
+          // For jobs without subJobs, use status
+          if (job.status === "completed") {
+            completedQuantity += jobQuantity;
+          } else if (job.status === "in-progress") {
+            inProgressQuantity += jobQuantity;
+          } else {
+            pendingQuantity += jobQuantity;
+          }
+        }
+      });
+
+      const totalQuantity = completedQuantity + inProgressQuantity + pendingQuantity;
+      const completionRate = totalQuantity > 0 ? (completedQuantity / totalQuantity) * 100 : 0;
 
       return {
         name: project.name,
-        completed: completedJobs,
-        total: totalJobs,
+        completed: completedQuantity,
+        inProgress: inProgressQuantity,
+        pending: pendingQuantity,
+        total: totalQuantity,
         completionRate: Math.round(completionRate),
-      }
-    })
+        // Add colors matching pie chart
+        colors: {
+          completed: "#10b981",
+          inProgress: "#f59e0b",
+          pending: "#ef4444"
+        }
+      };
+    });
   }
 
   const getOverallStats = () => {
@@ -406,8 +450,8 @@ export default function Dashboard() {
         <div className="charts-section">
           <div className="chart-container">
             <div className="chart-header">
-              <h3>📊 Project Completion Progress</h3>
-              <p>Track completion rates across all projects</p>
+              <h3>📊 Project Status Distribution</h3>
+              <p>Track job quantities by status for each project</p>
             </div>
             <div className="chart-wrapper">
               {projectStats.length > 0 ? (
