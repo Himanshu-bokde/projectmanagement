@@ -4,12 +4,14 @@ import { useState, useEffect } from "react"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { useAuth } from "../contexts/AuthContext"
+import { useNavigate } from "react-router-dom"
 import BarChart from "./charts/BarChart"
 import PieChart from "./charts/PieChart"
 import { StatCardSkeleton, ChartSkeleton } from "./SkeletonLoader"
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -208,7 +210,12 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="stats-grid">
-        <div className="stat-card stat-card-primary">
+        <div 
+          className="stat-card stat-card-primary cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => navigate('/projects')}
+          role="button"
+          title="Go to Projects"
+        >
           <div className="stat-icon">📁</div>
           <div className="stat-content">
             <div className="stat-number">{projects.length}</div>
@@ -216,29 +223,29 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="stat-card stat-card-success">
+        {/* <div className="stat-card stat-card-success">
           <div className="stat-icon">⚡</div>
           <div className="stat-content">
             <div className="stat-number">{totalJobs}</div>
             <div className="stat-label">Total Jobs</div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="stat-card stat-card-completed">
+        {/* <div className="stat-card stat-card-completed">
           <div className="stat-icon">✅</div>
           <div className="stat-content">
             <div className="stat-number">{completedJobs}</div>
             <div className="stat-label">Completed Jobs</div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="stat-card stat-card-progress">
+        {/* <div className="stat-card stat-card-progress">
           <div className="stat-icon">🔄</div>
           <div className="stat-content">
             <div className="stat-number">{inProgressJobs}</div>
             <div className="stat-label">In Progress</div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <div className="dashboard-content">

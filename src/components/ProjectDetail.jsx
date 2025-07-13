@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, Link } from "react-router-dom"
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore"
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, getDoc, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { useAuth } from "../contexts/AuthContext"
 import { JobRowSkeleton } from "./SkeletonLoader"
@@ -13,6 +13,12 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null)
   const [jobs, setJobs] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [showCsvModal, setShowCsvModal] = useState(false)
+  const [csvFile, setCsvFile] = useState(null)
+  const [csvError, setCsvError] = useState("")
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const fileInputRef = useRef(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [newJob, setNewJob] = useState({
     name: "",
@@ -56,7 +62,8 @@ export default function ProjectDetail() {
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
-      setLoading(false)
+      setLoading(false
+      )
     }
   }
 
@@ -257,6 +264,170 @@ export default function ProjectDetail() {
     return job.status === "completed"
   }
 
+  const handleCsvFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file && file.type === "text/csv") {
+      setCsvFile(file)
+      setCsvError("")
+    } else {
+      setCsvError("Please select a valid CSV file")
+      setCsvFile(null)
+    }
+  }
+
+  const downloadSampleCsv = () => {
+    const sampleData = `Part Mark,Description,Qty,Unit Weight
+C1,Column Section 1,2,1250.50
+B1,Beam Section 1,4,850.75
+G1,Girder Type 1,3,2100.25`
+
+    const blob = new Blob([sampleData], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "sample_jobs.csv"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
+  const processInChunks = async (jobs, chunkSize = 50) => {
+    const batches = []
+    for (let i = 0; i < jobs.length; i += chunkSize) {
+      batches.push(jobs.slice(i, i + chunkSize))
+    }
+
+    let processed = 0
+    for (const batch of batches) {
+      const batchBatch = writeBatch(db)
+      
+      batch.forEach((job) => {
+        const jobRef = doc(collection(db, "jobs"))
+        batchBatch.set(jobRef, job)
+      })
+
+      await batchBatch.commit()
+      processed += batch.length
+      setUploadProgress(Math.round((processed / jobs.length) * 100))
+    }
+  }
+
+  const handleUploadCsv = async (e) => {
+    e.preventDefault()
+    
+    // Prevent double submission
+    if (isUploading) {
+      return
+    }
+    
+    if (!csvFile) {
+      setCsvError("Please select a CSV file first")
+      return
+    }
+
+    setIsUploading(true)
+    setUploadProgress(0)
+    setCsvError("")
+
+    try {
+      const text = await csvFile.text()
+      const lines = text.split("\n").filter((line) => line.trim() !== "")
+      const headers = lines[0].split(",").map((header) => header.trim())
+
+      // Map CSV headers to our field names
+      const headerMap = {
+        "Part Mark": "name",
+        "Description": "description",
+        "Qty": "quantity",
+        "Unit Weight": "unitWeight"
+      }
+
+      // Check for required headers
+      const requiredHeaders = ["Part Mark", "Description", "Qty", "Unit Weight"]
+      const hasRequiredHeaders = requiredHeaders.every(header => headers.includes(header))
+      if (!hasRequiredHeaders) {
+        setCsvError("CSV file is missing required columns. Required columns are: Part Mark, Description, Qty, Unit Weight")
+        setIsUploading(false)
+        return
+      }
+
+      // Process each line
+      const jobsToImport = lines.slice(1).map(line => {
+        const values = line.split(",").map(value => value.trim())
+        const jobData = {}
+        headers.forEach((header, index) => {
+          if (headerMap[header]) {
+            jobData[headerMap[header]] = values[index]
+          }
+        })
+        return jobData
+      })
+
+      // Validate and prepare all jobs first
+      const validJobs = []
+      for (const job of jobsToImport) {
+        const { isValid, errors } = validateRequiredFields(job, ["name"])
+        if (isValid) {
+          const unitWeight = parseNumericField(job.unitWeight)
+          const quantity = parseNumericField(job.quantity)
+          const subJobs = Array.from({ length: quantity }, (_, i) => ({
+            name: `${job.name}-${i + 1}`,
+            steps: [
+              { name: "Raw material inspection", completed: false, completedAt: null },
+              { name: "Nesting", completed: false, completedAt: null },
+              { name: "Cutting", completed: false, completedAt: null },
+              { name: "H Beam", completed: false, completedAt: null },
+              { name: "Built up", completed: false, completedAt: null },
+              { name: "Fitup", completed: false, completedAt: null },
+              { name: "Fitup inspection", completed: false, completedAt: null },
+              { name: "Welding", completed: false, completedAt: null },
+              { name: "Finishing", completed: false, completedAt: null },
+              { name: "Finishing visual inspection", completed: false, completedAt: null },
+              { name: "Blasting", completed: false, completedAt: null },
+              { name: "Painting", completed: false, completedAt: null },
+              { name: "Painting inspection", completed: false, completedAt: null },
+              { name: "Ready For Dispatch - RFD", completed: false, completedAt: null }
+            ]
+          }))
+
+          validJobs.push(sanitizeForFirestore({
+            ...job,
+            projectId,
+            userId: user.uid,
+            unitWeight,
+            quantity,
+            totalWeight: unitWeight * quantity,
+            status: "pending",
+            createdAt: new Date(),
+            subJobs
+          }, ["description"]))
+        }
+      }
+
+      if (validJobs.length === 0) {
+        setCsvError("No valid jobs found in the CSV file")
+        setIsUploading(false)
+        return
+      }
+
+      // Process in chunks
+      await processInChunks(validJobs)
+
+      setCsvFile(null)
+      setShowCsvModal(false)
+      fetchProjectAndJobs()
+      setToastMsg(`Successfully imported ${validJobs.length} jobs!`)
+      setTimeout(() => setToastMsg(""), 3000)
+    } catch (error) {
+      console.error("Error importing jobs:", error)
+      setCsvError("Error importing jobs. Please check the console for details.")
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
   if (loading) {
     return (
       <div className="project-detail">
@@ -330,6 +501,9 @@ export default function ProjectDetail() {
             />
             <button onClick={() => setShowModal(true)} className="btn btn-primary">
               ➕ Add Job
+            </button>
+            <button onClick={() => setShowCsvModal(true)} className="btn btn-secondary">
+              📤 Upload CSV
             </button>
           </div>
         </div>
@@ -564,6 +738,149 @@ export default function ProjectDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showCsvModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Upload Jobs from CSV</h2>
+              <button onClick={() => setShowCsvModal(false)} className="modal-close">
+                ✕
+              </button>
+            </div>
+            <div className="modal-content" style={{ padding: "1.5rem" }}>
+              <div className="csv-upload-section">
+                {/* <div className="info-box" style={{ 
+                  background: "#f3f4f6", 
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  padding: "1.25rem",
+                  marginBottom: "1.5rem"
+                }}>
+                  <h3 style={{ 
+                    fontSize: "1.1rem", 
+                    marginBottom: "0.75rem",
+                    color: "#374151"
+                  }}>📋 CSV File Requirements</h3>
+                  <p style={{ marginBottom: "1rem", color: "#4b5563" }}>
+                    Your CSV file should include these columns:
+                  </p>
+                  <ul style={{ 
+                    listStyle: "none",
+                    padding: "0",
+                    margin: "0",
+                    display: "grid",
+                    gap: "0.5rem"
+                  }}>
+                    <li style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ color: "#059669" }}>✓</span> Part Mark (Job Name)
+                    </li>
+                    <li style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ color: "#059669" }}>✓</span> Description
+                    </li>
+                    <li style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ color: "#059669" }}>✓</span> Qty
+                    </li>
+                    <li style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ color: "#059669" }}>✓</span> Unit Weight
+                    </li>
+                  </ul>
+                </div> */}
+
+                <div className="upload-actions" style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  padding: "1.5rem",
+                  borderRadius: "8px",
+                  border: "2px dashed #e5e7eb"
+                }}>
+                  <button 
+                    onClick={downloadSampleCsv} 
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.5rem 1rem"
+                    }}
+                  >
+                    <span>📥</span>
+                    <span>Download Sample CSV</span>
+                  </button>
+
+                  <div className="file-upload-container" style={{
+                    width: "100%",
+                    textAlign: "center"
+                  }}>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleCsvFileChange}
+                      ref={fileInputRef}
+                      style={{ display: "none" }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn btn-primary"
+                      style={{
+                        width: "100%",
+                        padding: "1rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem"
+                      }}
+                    >
+                      <span>📎</span>
+                      <span>Select CSV File</span>
+                    </button>
+                    {csvFile && (
+                      <div style={{ 
+                        marginTop: "0.75rem",
+                        padding: "0.5rem",
+                        background: "#f3f4f6",
+                        borderRadius: "4px",
+                        fontSize: "0.9rem"
+                      }}>
+                        <span>Selected file: </span>
+                        <span style={{ fontWeight: "500" }}>{csvFile.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {csvError && (
+                  <div className="error-message" style={{
+                    marginTop: "1rem",
+                    padding: "0.75rem",
+                    background: "#fee2e2",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    color: "#dc2626"
+                  }}>
+                    ⚠️ {csvError}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowCsvModal(false)} className="btn btn-secondary">
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadCsv}
+                className="btn btn-primary"
+                disabled={!csvFile}
+              >
+                {isUploading ? "Uploading..." : "Upload and Import"}
+              </button>
+            </div>
           </div>
         </div>
       )}
