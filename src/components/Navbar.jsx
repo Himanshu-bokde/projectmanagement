@@ -42,7 +42,7 @@ export default function Navbar() {
                 style={{ height: '54px', width: '54px', objectFit: 'contain', borderRadius: '50%' }}
               />
             </span>
-            <h2 style={{ margin: 0, fontSize: '1.35rem', letterSpacing: '1px' }}>KESHAVAM INDUSTRIES</h2>
+            {/* <h2 style={{ margin: 0, fontSize: '1.35rem', letterSpacing: '1px' }}>KESHAVAM INDUSTRIES</h2> */}
           </Link>
         </div>
 

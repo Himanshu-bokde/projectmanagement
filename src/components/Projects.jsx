@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where } from "firebase/firestore"
-import { db } from "../lib/firebase"
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from "firebase/firestore"
+import { db, messaging } from "../lib/firebase"
+import { getToken, onMessage } from "firebase/messaging"
 import { useAuth } from "../contexts/AuthContext"
 import { Link } from "react-router-dom"
 import { ProjectCardSkeleton } from "./SkeletonLoader"
@@ -13,6 +14,46 @@ export default function Projects() {
   const { user } = useAuth()
   const [projects, setProjects] = useState([])
   const [showModal, setShowModal] = useState(false)
+
+  // Initialize notifications
+  useEffect(() => {
+    // Request notification permission on component mount
+    const requestNotificationPermission = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          console.log('Notification permission granted');
+          // Get the FCM token
+          const token = await getToken(messaging, {
+            vapidKey: "BKv8EAZ1XdRO5IBYXQ-i4BQzG5z3S9NY7HimUjx2CL9_KMMdInqkFhiDbssEMQxPJ-Dk0V5gokve9h6zHRpoYAE"
+          });
+          console.log('FCM Token:', token);
+        } else {
+          console.log('Notification permission denied');
+        }
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+      }
+    };
+
+    requestNotificationPermission();
+
+    // Set up message listener for foreground messages
+    const messageUnsubscribe = onMessage(messaging, (payload) => {
+      console.log('Received foreground message:', payload);
+      // Show notification for foreground messages
+      if (Notification.permission === 'granted') {
+        new Notification(payload.notification.title, {
+          body: payload.notification.body,
+          icon: '/image.jpg'
+        });
+      }
+    });
+
+    return () => {
+      messageUnsubscribe(); // Cleanup subscription on unmount
+    };
+  }, []);
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
@@ -234,6 +275,82 @@ export default function Projects() {
     return filtered
   }, [projects, searchTerm, statusFilter, dateFilter, sortBy, sortOrder, customStartDate, customEndDate])
 
+  const sendNotification = async (projectName, isUpdate = false, projectId) => {
+    try {
+      // Create notification in Firestore for all users
+      const notificationData = {
+        title: isUpdate ? 'Project Updated' : 'New Project Created',
+        body: isUpdate 
+          ? `Project "${projectName}" has been updated`
+          : `Project "${projectName}" has been created`,
+        createdAt: new Date(),
+        projectId: projectId,
+        createdBy: user.uid,
+        type: isUpdate ? 'project_update' : 'project_create',
+        read: false
+      };
+
+      // Add to notifications collection
+      await addDoc(collection(db, 'notifications'), notificationData);
+
+      // Show local notification for current user
+      if (Notification.permission === 'granted') {
+        const notification = new Notification(
+          notificationData.title,
+          {
+            body: notificationData.body,
+            icon: '/image.jpg',
+            tag: isUpdate ? 'project-update' : 'project-create',
+            requireInteraction: true,
+            silent: false
+          }
+        );
+
+        notification.onclick = () => {
+          console.log('Notification clicked');
+          window.focus();
+        };
+      }
+
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      throw error;
+    }
+  };
+
+  // Listen for new notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('createdBy', '!=', user.uid),
+      where('read', '==', false)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const notification = change.doc.data();
+          
+          // Show notification for other logged-in users
+          if (Notification.permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.body,
+              icon: '/image.jpg',
+              requireInteraction: true
+            });
+          }
+
+          // Mark notification as read
+          updateDoc(doc(db, 'notifications', change.doc.id), { read: true });
+        }
+      });
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const handleCreateProject = async (e) => {
     e.preventDefault()
 
@@ -256,7 +373,11 @@ export default function Projects() {
       )
 
       console.log("Creating project with data:", projectData)
-      await addDoc(collection(db, "projects"), projectData)
+      const docRef = await addDoc(collection(db, "projects"), projectData)
+      
+      // Send notification with project ID
+      await sendNotification(projectData.name, false, docRef.id)
+      
       setNewProject({ name: "", description: "", startDate: "", endDate: "" })
       setShowModal(false)
       showFilterToast("Project created successfully!", "success")
@@ -318,7 +439,17 @@ const handleDeleteProject = async (projectId) => {
         ["startDate", "endDate", "description"],
       )
 
+      // First update the document
       await updateDoc(doc(db, "projects", editingProject), projectData)
+      
+      // Then show notification with project ID
+      try {
+        await sendNotification(projectData.name, true, editingProject)
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError)
+        // Don't fail the update if notification fails
+      }
+      
       setEditProject({ name: "", description: "", startDate: "", endDate: "" })
       setEditingProject(null)
       showFilterToast("Project updated successfully!", "success")
