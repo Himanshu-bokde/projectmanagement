@@ -277,15 +277,6 @@ export default function Projects() {
 
   const sendNotification = async (projectName, isUpdate = false, projectId) => {
     try {
-      // Check if we have notification permission first
-      if (Notification.permission === 'default') {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.log('Notification permission not granted');
-          return;
-        }
-      }
-
       // Create notification in Firestore for all users
       const notificationData = {
         title: isUpdate ? 'Project Updated' : 'New Project Created',
@@ -295,43 +286,32 @@ export default function Projects() {
         createdAt: new Date(),
         projectId: projectId,
         createdBy: user.uid,
-        read: false,
-        type: isUpdate ? 'project_update' : 'project_create'
+        type: isUpdate ? 'project_update' : 'project_create',
+        read: false
       };
 
-      console.log('Creating notification:', notificationData);
-
       // Add to notifications collection
-      const notificationRef = await addDoc(collection(db, 'notifications'), notificationData);
-      console.log('Notification created with ID:', notificationRef.id);
+      await addDoc(collection(db, 'notifications'), notificationData);
 
-      // Show local notification for current user (desktop or mobile)
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification(notificationData.title, {
+      // Show local notification for current user
+      if (Notification.permission === 'granted') {
+        const notification = new Notification(
+          notificationData.title,
+          {
             body: notificationData.body,
             icon: '/image.jpg',
             tag: isUpdate ? 'project-update' : 'project-create',
             requireInteraction: true,
             silent: false
-          });
-        } catch (err) {
-          // Fallback for mobile browsers: use service worker if available
-          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.getRegistration().then(reg => {
-              if (reg) {
-                reg.showNotification(notificationData.title, {
-                  body: notificationData.body,
-                  icon: '/image.jpg',
-                  tag: isUpdate ? 'project-update' : 'project-create',
-                  requireInteraction: true,
-                  silent: false
-                });
-              }
-            });
           }
-        }
+        );
+
+        notification.onclick = () => {
+          console.log('Notification clicked');
+          window.focus();
+        };
       }
+
     } catch (error) {
       console.error('Error sending notification:', error);
       throw error;
@@ -342,75 +322,28 @@ export default function Projects() {
   useEffect(() => {
     if (!user) return;
 
-    // Request notification permission if not already granted
-    const requestPermission = async () => {
-      if (Notification.permission === 'default') {
-        await Notification.requestPermission();
-      }
-    };
-    requestPermission();
-
-    console.log('Setting up notification listener for user:', user.uid);
-
-    // Simplified query while index is building
-    let q;
-    try {
-      q = query(
-        collection(db, 'notifications'),
-        where('createdBy', '!=', user.uid),
-        where('read', '==', false)
-      );
-    } catch (error) {
-      // Fallback to simpler query if index isn't ready
-      console.log('Using fallback query while index builds...');
-      q = query(
-        collection(db, 'notifications'),
-        where('read', '==', false)
-      );
-    }
+    const q = query(
+      collection(db, 'notifications'),
+      where('createdBy', '!=', user.uid),
+      where('read', '==', false)
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Notification snapshot received:', snapshot.size, 'changes');
-      
       snapshot.docChanges().forEach((change) => {
-        console.log('Notification change:', change.type, change.doc.data());
-        
         if (change.type === 'added') {
           const notification = change.doc.data();
           
-          // Only show notifications for other users (when using fallback query)
-          if (notification.createdBy !== user.uid) {
-            // Show notification for other logged-in users
-            if (Notification.permission === 'granted') {
-              console.log('Showing notification:', notification);
-              try {
-                new Notification(notification.title, {
-                  body: notification.body,
-                  icon: '/image.jpg',
-                  requireInteraction: true
-                });
-              } catch (err) {
-                // Fallback for mobile browsers: use service worker if available
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                  navigator.serviceWorker.getRegistration().then(reg => {
-                    if (reg) {
-                      reg.showNotification(notification.title, {
-                        body: notification.body,
-                        icon: '/image.jpg',
-                        requireInteraction: true
-                      });
-                    }
-                  });
-                }
-              }
-            }
-
-            // Mark notification as read
-            console.log('Marking notification as read:', change.doc.id);
-            updateDoc(doc(db, 'notifications', change.doc.id), { read: true })
-              .then(() => console.log('Notification marked as read'))
-              .catch(error => console.error('Error marking notification as read:', error));
+          // Show notification for other logged-in users
+          if (Notification.permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.body,
+              icon: '/image.jpg',
+              requireInteraction: true
+            });
           }
+
+          // Mark notification as read
+          updateDoc(doc(db, 'notifications', change.doc.id), { read: true });
         }
       });
     });
