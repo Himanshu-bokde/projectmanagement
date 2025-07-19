@@ -441,37 +441,10 @@ export default function Projects() {
 
       console.log("Creating project with data:", projectData)
       const docRef = await addDoc(collection(db, "projects"), projectData)
-
-      // Show instant local notification for the creator
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification('New Project Created', {
-            body: `Project \"${projectData.name}\" has been created`,
-            icon: '/image.jpg',
-            tag: 'project-create',
-            requireInteraction: true,
-            silent: false
-          });
-        } catch (err) {
-          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.getRegistration().then(reg => {
-              if (reg) {
-                reg.showNotification('New Project Created', {
-                  body: `Project \"${projectData.name}\" has been created`,
-                  icon: '/image.jpg',
-                  tag: 'project-create',
-                  requireInteraction: true,
-                  silent: false
-                });
-              }
-            });
-          }
-        }
-      }
-
-      // Firestore logic for cross-user notifications
+      
+      // Send notification with project ID
       await sendNotification(projectData.name, false, docRef.id)
-
+      
       setNewProject({ name: "", description: "", startDate: "", endDate: "" })
       setShowModal(false)
       showFilterToast("Project created successfully!", "success")
