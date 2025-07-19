@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from "firebase/firestore"
 import { db, messaging } from "../lib/firebase"
-import { setDoc } from "firebase/firestore"
 import { getToken, onMessage } from "firebase/messaging"
 import { useAuth } from "../contexts/AuthContext"
 import { Link } from "react-router-dom"
@@ -15,24 +14,6 @@ export default function Projects() {
   const { user } = useAuth()
   const [projects, setProjects] = useState([])
   const [showModal, setShowModal] = useState(false)
-
-  // Save FCM token to Firestore for this user
-  const saveFcmToken = async (user) => {
-    try {
-      const token = await getToken(messaging, { vapidKey: "BKv8EAZ1XdRO5IBYXQ-i4BQzG5z3S9NY7HimUjx2CL9_KMMdInqkFhiDbssEMQxPJ-Dk0V5gokve9h6zHRpoYAE" });
-      if (token) {
-        await setDoc(doc(db, "users", user.uid), { fcmToken: token }, { merge: true });
-        console.log("FCM token saved to Firestore:", token);
-      }
-    } catch (err) {
-      console.error("Unable to get FCM token", err);
-    }
-  };
-
-  // Save FCM token after user login
-  useEffect(() => {
-    if (user) saveFcmToken(user);
-  }, [user]);
 
   // Initialize notifications
   useEffect(() => {
