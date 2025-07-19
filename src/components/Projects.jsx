@@ -639,9 +639,9 @@ const handleDeleteProject = async (projectId) => {
                   </div>
                 </div>
               </div>
-              <div className="project-actions">
-                <Link to={`/projects/${project.id}`} className="btn btn-secondary">
-                  View Jobs
+              <div className="project-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <Link to={`/projects/${project.id}/batches`} className="btn btn-secondary">
+                  View Batches
                 </Link>
               </div>
             </div>

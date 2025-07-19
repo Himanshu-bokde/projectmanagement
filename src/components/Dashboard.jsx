@@ -338,7 +338,7 @@ export default function Dashboard() {
           <div className="stat-icon">📁</div>
           <div className="stat-content">
             <div className="stat-number">{projects.length}</div>
-            <div className="stat-label">Total Projects</div>
+            <div className="stat-label">Client</div>
           </div>
         </div>
 

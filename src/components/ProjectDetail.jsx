@@ -1,14 +1,29 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useParams, Link } from "react-router-dom"
 import { collection, query, where, getDocs, addDoc, deleteDoc, doc, getDoc, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { useAuth } from "../contexts/AuthContext"
 import { JobRowSkeleton } from "./SkeletonLoader"
+import StepPieChart from "./charts/StepPieChart"
+
 import { sanitizeForFirestore, validateRequiredFields, parseNumericField } from "../utils/firestoreUtils"
-export default function ProjectDetail() {
-  const { projectId } = useParams()
+export default function ProjectDetail({ isBatchJobs }) {
+    const [showStepModal, setShowStepModal] = useState(false)
+  const [selectedStepIdx, setSelectedStepIdx] = useState(null)
+  const [stepModalData, setStepModalData] = useState({ stepName: '', completed: 0, total: 0 })
+  // Compute step completion counts for pie chart
+  const stepNames = [
+    "Cutting",
+    "H Beam",
+    "Fitup",
+    "Welding",
+    "Finishing",
+    "Blasting & Painting",
+    "Ready For Dispatch - RFD",
+  ]
+  const { projectId, batchId } = useParams()
   const { user } = useAuth()
   const [project, setProject] = useState(null)
   const [jobs, setJobs] = useState([])
@@ -41,7 +56,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     fetchProjectAndJobs()
-  }, [projectId])
+  }, [projectId, batchId])
 
   const fetchProjectAndJobs = async () => {
     try {
@@ -51,8 +66,13 @@ export default function ProjectDetail() {
         setProject({ id: projectDoc.id, ...projectDoc.data() })
       }
 
-      // Fetch all jobs for this project (remove user filter)
-      const q = query(collection(db, "jobs"), where("projectId", "==", projectId))
+      // Fetch jobs for this project, filter by batchId if needed
+      let q
+      if (isBatchJobs && batchId) {
+        q = query(collection(db, "jobs"), where("projectId", "==", projectId), where("batchId", "==", batchId))
+      } else {
+        q = query(collection(db, "jobs"), where("projectId", "==", projectId))
+      }
       const querySnapshot = await getDocs(q)
       const jobsData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -62,8 +82,7 @@ export default function ProjectDetail() {
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
-      setLoading(false
-      )
+      setLoading(false)
     }
   }
 
@@ -83,19 +102,12 @@ export default function ProjectDetail() {
       const subJobs = Array.from({ length: quantity }, (_, i) => ({
         name: `${newJob.name}-${i + 1}`,
         steps: [
-          { name: "Raw material inspection", completed: false, completedAt: null },
-          { name: "Nesting", completed: false, completedAt: null },
           { name: "Cutting", completed: false, completedAt: null },
           { name: "H Beam", completed: false, completedAt: null },
-          { name: "Built up", completed: false, completedAt: null },
           { name: "Fitup", completed: false, completedAt: null },
-          { name: "Fitup inspection", completed: false, completedAt: null },
           { name: "Welding", completed: false, completedAt: null },
           { name: "Finishing", completed: false, completedAt: null },
-          { name: "Finishing visual inspection", completed: false, completedAt: null },
-          { name: "Blasting", completed: false, completedAt: null },
-          { name: "Painting", completed: false, completedAt: null },
-          { name: "Painting inspection", completed: false, completedAt: null },
+          { name: "Blasting & Painting", completed: false, completedAt: null },
           { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
         ],
       }))
@@ -110,6 +122,7 @@ export default function ProjectDetail() {
           status: "pending",
           createdAt: new Date(),
           subJobs,
+          ...(isBatchJobs && batchId ? { batchId } : {}),
         },
         ["description"],
       )
@@ -184,21 +197,14 @@ export default function ProjectDetail() {
             name: `${editJob.name}-${i + 1}`,
             steps:
               existing && Array.isArray(existing.steps)
-                ? existing.steps.map((step) => ({ ...step }))
+                ? existing.steps
                 : [
-                    { name: "Raw material inspection", completed: false, completedAt: null },
-                    { name: "Nesting", completed: false, completedAt: null },
                     { name: "Cutting", completed: false, completedAt: null },
                     { name: "H Beam", completed: false, completedAt: null },
-                    { name: "Built up", completed: false, completedAt: null },
                     { name: "Fitup", completed: false, completedAt: null },
-                    { name: "Fitup inspection", completed: false, completedAt: null },
                     { name: "Welding", completed: false, completedAt: null },
                     { name: "Finishing", completed: false, completedAt: null },
-                    { name: "Finishing visual inspection", completed: false, completedAt: null },
-                    { name: "Blasting", completed: false, completedAt: null },
-                    { name: "Painting", completed: false, completedAt: null },
-                    { name: "Painting inspection", completed: false, completedAt: null },
+                    { name: "Blasting & Painting", completed: false, completedAt: null },
                     { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
                   ],
           }
@@ -208,19 +214,12 @@ export default function ProjectDetail() {
         updatedSubJobs = Array.from({ length: newQuantity }, (_, i) => ({
           name: `${editJob.name}-${i + 1}`,
           steps: [
-            { name: "Raw material inspection", completed: false, completedAt: null },
-            { name: "Nesting", completed: false, completedAt: null },
             { name: "Cutting", completed: false, completedAt: null },
             { name: "H Beam", completed: false, completedAt: null },
-            { name: "Built up", completed: false, completedAt: null },
             { name: "Fitup", completed: false, completedAt: null },
-            { name: "Fitup inspection", completed: false, completedAt: null },
             { name: "Welding", completed: false, completedAt: null },
             { name: "Finishing", completed: false, completedAt: null },
-            { name: "Finishing visual inspection", completed: false, completedAt: null },
-            { name: "Blasting", completed: false, completedAt: null },
-            { name: "Painting", completed: false, completedAt: null },
-            { name: "Painting inspection", completed: false, completedAt: null },
+            { name: "Blasting & Painting", completed: false, completedAt: null },
             { name: "Ready For Dispatch - RFD", completed: false, completedAt: null },
           ],
         }))
@@ -371,19 +370,12 @@ export default function ProjectDetail() {
           const subJobs = Array.from({ length: quantity }, (_, i) => ({
             name: `${job.name}-${i + 1}`,
             steps: [
-              { name: "Raw material inspection", completed: false, completedAt: null },
-              { name: "Nesting", completed: false, completedAt: null },
               { name: "Cutting", completed: false, completedAt: null },
               { name: "H Beam", completed: false, completedAt: null },
-              { name: "Built up", completed: false, completedAt: null },
               { name: "Fitup", completed: false, completedAt: null },
-              { name: "Fitup inspection", completed: false, completedAt: null },
               { name: "Welding", completed: false, completedAt: null },
               { name: "Finishing", completed: false, completedAt: null },
-              { name: "Finishing visual inspection", completed: false, completedAt: null },
-              { name: "Blasting", completed: false, completedAt: null },
-              { name: "Painting", completed: false, completedAt: null },
-              { name: "Painting inspection", completed: false, completedAt: null },
+              { name: "Blasting & Painting", completed: false, completedAt: null },
               { name: "Ready For Dispatch - RFD", completed: false, completedAt: null }
             ]
           }))
@@ -424,6 +416,23 @@ export default function ProjectDetail() {
       setUploadProgress(0)
     }
   }
+
+  // Move stepStats calculation here, using useMemo
+  const stepStats = useMemo(() => stepNames.map((step, idx) => {
+    let completedCount = 0
+    let totalCount = 0
+    jobs.forEach(job => {
+      if (Array.isArray(job.subJobs)) {
+        job.subJobs.forEach(sub => {
+          if (Array.isArray(sub.steps) && sub.steps[idx]) {
+            totalCount++
+            if (sub.steps[idx].completed) completedCount++
+          }
+        })
+      }
+    })
+    return { name: step, completedCount, totalCount }
+  }), [jobs])
 
   if (loading) {
     return (
@@ -506,6 +515,41 @@ export default function ProjectDetail() {
         </div>
 
         {/* Project Jobs Progress Bar */}
+        {/* Steps Pie Chart */}
+        <div style={{ margin: "2rem 0" }}>
+          <h3 style={{ textAlign: "center", marginBottom: 8 }}>Steps Completion Overview</h3>
+          <StepPieChart
+            steps={stepStats}
+            onStepClick={(idx) => {
+              setSelectedStepIdx(idx)
+              setStepModalData({
+                stepName: stepStats[idx].name,
+                completed: stepStats[idx].completedCount,
+                total: stepStats[idx].totalCount,
+              })
+              setShowStepModal(true)
+            }}
+          />
+        </div>
+      {/* Step Completion Modal */}
+      {showStepModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Step: {stepModalData.stepName}</h2>
+              <button onClick={() => setShowStepModal(false)} className="modal-close">✕</button>
+            </div>
+            <div className="modal-content" style={{ padding: "1.5rem", textAlign: "center" }}>
+              <p style={{ fontSize: 18 }}>
+                Completed: <b>{stepModalData.completed}</b> / <b>{stepModalData.total}</b> sub-jobs
+              </p>
+              <div style={{ marginTop: 16 }}>
+                <button className="btn btn-secondary" onClick={() => setShowStepModal(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
         <div className="project-progress-bar" style={{ margin: "1rem 0" }}>
           {jobs.length > 0 && (() => {
             const completedCount = jobs.filter(isJobCompleted).length
