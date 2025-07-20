@@ -376,7 +376,7 @@ const handleDeleteProject = async (projectId) => {
   return (
     <div className="projects">
       <div className="projects-header">
-        <h1>📁 Projects ({projects.length} total)</h1>
+        <h1>📁 Projects ({projects.length})</h1>
         <button onClick={() => setShowModal(true)} className="btn btn-primary">
           ➕ Create Project
         </button>
