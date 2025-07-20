@@ -533,18 +533,39 @@ export default function ProjectDetail({ isBatchJobs }) {
         </div>
       {/* Step Completion Modal */}
       {showStepModal && (
-        <div className="modal-overlay">
-          <div className="modal">
+        <div className="modal-overlay" onClick={() => setShowStepModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px", width: "90%" }}>
             <div className="modal-header">
-              <h2>Step: {stepModalData.stepName}</h2>
-              <button onClick={() => setShowStepModal(false)} className="modal-close">✕</button>
+              <h2>{stepModalData.stepName} - Weight Calculation</h2>
             </div>
             <div className="modal-content" style={{ padding: "1.5rem", textAlign: "center" }}>
-              <p style={{ fontSize: 18 }}>
+              <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "1rem" }}>
                 Completed: <b>{stepModalData.completed}</b> / <b>{stepModalData.total}</b> sub-jobs
               </p>
-              <div style={{ marginTop: 16 }}>
-                <button className="btn btn-secondary" onClick={() => setShowStepModal(false)}>Close</button>
+              <div style={{ 
+                fontSize: "18px", 
+                fontWeight: "bold",
+                color: "var(--text-primary)",
+                padding: "1rem",
+                background: "var(--card-bg)",
+                borderRadius: "6px",
+                border: "2px solid var(--border-color)"
+              }}>
+                Total {stepModalData.stepName}: {jobs.filter(job => 
+                  Array.isArray(job.subJobs) && 
+                  job.subJobs.some(sub => 
+                    Array.isArray(sub.steps) && 
+                    sub.steps[selectedStepIdx] && 
+                    sub.steps[selectedStepIdx].completed
+                  )
+                ).reduce((total, job) => {
+                  const completedSubJobs = job.subJobs.filter(sub => 
+                    Array.isArray(sub.steps) && 
+                    sub.steps[selectedStepIdx] && 
+                    sub.steps[selectedStepIdx].completed
+                  ).length;
+                  return total + (job.unitWeight * completedSubJobs);
+                }, 0).toFixed(0)} KG
               </div>
             </div>
           </div>
